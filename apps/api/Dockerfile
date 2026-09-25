@@ -16,7 +16,7 @@ FROM node:22-alpine AS runner
 RUN apk add --no-cache ffmpeg
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=builder /app/dist/apps/api ./dist/apps/api
+COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["node", "dist/apps/api/main.js"]
+CMD ["node", "dist/main.js"]

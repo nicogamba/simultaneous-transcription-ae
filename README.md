@@ -1,110 +1,255 @@
-# SimultaneousTranscriptionAe
+# Simultaneous Real-Time Transcription System
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Sistema open-source de transcripción y traducción de audio en tiempo real para conferencias. Captura audio (micrófono o archivo), lo procesa por chunks usando VAD (Silero), lo transcribe/traduce con una estrategia pluggable de IA, y transmite los subtítulos a audiencias web y a un overlay transparente para OBS.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+> **MVP actual:** 2+ sesiones concurrentes en memoria, WebSockets (ingestión) + Server-Sent Events (broadcast), Redis Pub/Sub para escalar workers.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+---
 
-## Generate a library
-
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
-```
-
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx build pkg1
-```
-
-To run any task with Nx use:
-
-```sh
-npx nx <target> <project-name>
-```
-
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
+## 1. Arquitectura
 
 ```
-npx nx release
+┌─────────────────────┐         WebSocket /ingest         ┌──────────────────────────────┐
+│  Admin (Broadcaster)│ ──── audio chunks (base64/binary) │  API (NestJS)                │
+│  /admin/broadcast   │ ────────────────────────────────▶ │  IngestionGateway            │
+└─────────────────────┘                                   │      │                       │
+                                                          │      ▼                       │
+                                                          │  AudioPipelineService        │
+                                                          │   ├─ AudioAcousticService    │
+                                                          │   │   (ffmpeg → PCM 16k mono)│
+                                                          │   └─ SileroVadService        │
+                                                          │       (chunks + sequenceId)  │
+                                                          │            │                 │
+                                                          │            ▼                 │
+                                                          │  TranscriptionEngine         │
+                                                          │   └─ ITranslationProvider    │
+                                                          │       (mock | gemini)        │
+                                                          │            │                 │
+                                                          │            ▼                 │
+                                                          │  RedisSubtitleBroadcaster    │
+                                                          │   pub stage:{id}:subtitles   │
+                                                          └────────────┬─────────────────┘
+                                                                       │ Redis Pub/Sub
+                              ┌────────────────────────────────────────┘
+                              ▼
+                    SseBroadcastService (subscriber por cliente)
+                              │
+   ┌──────────────────────────┼──────────────────────────┐
+   ▼                          ▼                          ▼
+ /stage/:id               /overlay/stage/:id        (futuros: Mercure, N replicas)
+ Audience view            OBS overlay
+ (SSE + Jitter Buffer     (SSE + Jitter Buffer,
+  ordenado por seqId)      fondo transparente)
 ```
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+### Decisiones clave
 
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- **Monorepo Nx + pnpm**: `apps/api` (NestJS 11), `apps/web` (Angular 22 standalone + signals, sin NgModules), `libs/shared-types` (DTOs/contracts compartidos).
+- **Strategy Pattern para IA**: todo provider implementa `ITranslationProvider`. Se cambia vía `AI_PROVIDER=mock|gemini` sin tocar el core.
+- **Sequence IDs + Jitter Buffer**: cada chunk VAD recibe un `sequenceId` estrictamente incremental por sesión. Las respuestas de IA llegan a distinta velocidad; el frontend las reordena por `sequenceId` en el jitter buffer antes de renderizar.
+- **Memoria**: los buffers de audio se liberan explícitamente (slicing + reassign), los streams de ffmpeg se gestionan con `on('error')`/`on('end')`, y hay graceful shutdown (`OnModuleDestroy`) que vacía sesiones, flushes VAD y cierra Redis.
+- **Race conditions**: el gateway serializa los mensajes por conexión (cola por conexión) para que `audio` se procese antes de `end`/`disconnect`; el pipeline serializa la ingesta por sesión.
 
-## Keep TypeScript project references up to date
+---
 
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
+## 2. Stack
 
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+| Capa | Tecnología |
+|---|---|
+| Monorepo | Nx 23 + pnpm |
+| Backend | NestJS 11 (TypeScript strict, sin `any`) |
+| Frontend | Angular 22 (Standalone Components, Signals, RxJS) |
+| Audio | `ffmpeg` (downsample a PCM 16-bit/16kHz/mono) + `@ricky0123/vad-node` (Silero VAD, ONNX) |
+| IA | Strategy Pattern: `MockTranslationProvider` (default) y `GeminiTranslationProvider` (`@google/genai` + circuit breaker `opossum`) |
+| Mensajería | Redis Pub/Sub (`ioredis`) |
+| Transporte | WebSocket (socket.io) para ingestión + SSE para broadcast |
+| Infra | `docker-compose.yml` (postgres provisionado para fases futuras, redis, api con ffmpeg, web con nginx) |
 
-```sh
-npx nx sync
+---
+
+## 3. Requisitos
+
+- Node.js 22+
+- pnpm 9+
+- Docker + Docker Compose (para Redis/Postgres y el despliegue)
+- `ffmpeg` en el `PATH` para el desarrollo local
+
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt install ffmpeg
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+---
 
-```sh
-npx nx sync:check
+## 4. Puesta en marcha
+
+### 4.1 Con Docker Compose (todo el sistema)
+
+```bash
+cp .env.example .env        # ajustar variables si es necesario
+docker compose up --build
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+- API: `http://localhost:3000/api`
+- Web: `http://localhost:8080`
+- Redis: `localhost:6379`
+- Postgres: `localhost:5432` (provisionado, no usado en el MVP)
 
-## Set up CI!
+### 4.2 En desarrollo
 
-### Step 1
+```bash
+pnpm install
 
-To connect to Nx Cloud, run the following command:
+# Redis (necesario para el broadcast)
+docker compose up -d redis
 
-```sh
-npx nx connect
+# Terminal 1: API
+pnpm nx serve api
+
+# Terminal 2: Web (dev server con proxy a la API)
+pnpm nx serve web
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+- API: `http://localhost:3000/api`
+- Web: `http://localhost:4200`
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-### Step 2
+## 5. Cómo probar
 
-Use the following command to configure a CI workflow for your workspace:
+### 5.1 Con un archivo de audio
 
-```sh
-npx nx g ci-workflow
+1. Abre `http://localhost:4200/admin/broadcast` (o `/api` si usas Docker).
+2. Conecta (`Conectar`) — se crea la sesión con un `sessionId` por defecto (`stage-1`).
+3. Selecciona un archivo `.mp3` o `.wav` y pulsa **Enviar archivo**, o usa **Iniciar micrófono**.
+4. Finaliza la sesión.
+5. Abre `http://localhost:4200/stage/stage-1` (audiencia) o `http://localhost:4200/overlay/stage/stage-1` (overlay OBS) y verás los subtítulos en tiempo real.
+
+### 5.2 Con el driver real (Gemini)
+
+```bash
+export AI_PROVIDER=gemini
+export GEMINI_API_KEY=tu_clave
+pnpm nx serve api
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+El pipeline no cambia: el `TranslationProviderFactory` selecciona el provider según `.env`.
 
-## Install Nx Console
+### 5.3 Verificar el broadcast sin UI
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+```bash
+# Conecta al SSE del stage
+curl -N http://localhost:3000/api/stage/stage-1/subtitles
+```
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Y publica un payload de prueba en Redis:
 
-## Useful links
+```bash
+redis-cli publish 'stage:stage-1:subtitles' '{"sessionId":"stage-1","event":"transcription","sequenceId":1,"result":{"sourceText":"hola","translatedText":"hello"},"status":null,"error":null,"serverTimestamp":0}'
+```
 
-Learn more:
+---
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 6. Estructura del proyecto
 
-And join the Nx community:
+```
+apps/
+  api/                    # NestJS 11
+    src/app/
+      ai/                 # Strategy Pattern (providers + engine)
+      audio/              # ffmpeg + VAD + pipeline config
+      broadcast/          # broadcaster Redis + SseBroadcastService
+      config/             # config tipada desde env
+      gateways/           # IngestionGateway (WS) + SessionController + BroadcastController (SSE)
+      pipeline/           # AudioPipelineService (sesiones en memoria)
+  api-e2e/                # tests e2e (in-process Nest): WS -> pipeline -> Redis -> SSE
+  web/                    # Angular 22 standalone
+    src/app/
+      broadcast/          # /admin/broadcast
+      stage/              # /stage/:id
+      overlay/            # /overlay/stage/:id
+      services/           # ingestion, audio-capturer, stage-sse, subtitle-store, jitter-buffer
+libs/
+  shared-types/           # DTOs, interfaces, enums (contracto compartido)
+```
 
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
+
+## 7. Configuración (`.env`)
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `PORT` | Puerto de la API | `3000` |
+| `REDIS_URL` | URL de Redis | `redis://localhost:6379` |
+| `AI_PROVIDER` | `mock` \| `gemini` | `mock` |
+| `GEMINI_API_KEY` | Clave de Gemini (si `AI_PROVIDER=gemini`) | — |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash` |
+| `MAX_CHUNK_DURATION_MS` | Duración máxima de chunk VAD | `5000` |
+| `VAD_SILENCE_THRESHOLD_MS` | Silencio que corta el chunk | `300` |
+| `VAD_FAKE` | `true` usa un VAD determinista (tests e2e) | `false` |
+
+---
+
+## 8. Testing
+
+```bash
+# Unit tests
+pnpm nx test api
+pnpm nx test shared-types
+pnpm nx test web
+
+# E2E (requiere Redis arriba: docker compose up -d redis)
+pnpm nx run api-e2e:e2e
+```
+
+- **Unit**: VAD (splitting por silencio/max-duración, sequenceIds, memoria), ffmpeg (transcode real), pipeline (sesiones concurrentes, graceful shutdown), factory IA, jitter buffer (reordenación), subtitle store.
+- **E2E** (in-process Nest con VAD fake determinista): `Redis publish → SSE emit` y `WebSocket ingest → pipeline → Redis → SSE`.
+
+---
+
+## 9. Escalado horizontal (hoja de ruta)
+
+El diseño actual escala a **2+ sesiones** con un solo proceso. Para **miles de usuarios concurrentes**:
+
+### 9.1 Múltiples instancias de API + Redis Pub/Sub
+
+- El pipeline de ingestión (VAD/transcode/IA) es por-sesión y no necesita estado compartido: cada sesión vive en una instancia.
+- El broadcast ya es stateless vía Redis Pub/Sub: cualquiera puede suscribirse al canal `stage:{id}:subtitles`. Esto ya permite **N réplicas de la API** detrás de un load balancer (sticky por sesión para ingestión, cualquier réplica sirve SSE).
+
+### 9.2 Mercure (reemplazo del fan-out SSE)
+
+El `SseBroadcastService` crea un subscriber Redis **por cliente**. Con miles de audiencia esto satura Redis. **Mercure** resuelve el problema: el publisher publica una vez y Mercure distribuye a todos los suscriptores HTTP/SSE.
+
+```
+Ingest API ── Redis Pub/Sub ──▶ Mercure Hub ── SSE ──▶ /stage/:id  (clientes)
+                                    │
+                            Audiencia (miles)
+```
+
+Pasos:
+1. Sustituir el loop de `SseBroadcastService` por un `ISubtitleBroadcaster` que publique en Mercure (`mercure_hub_url`).
+2. El frontend pasa a usar la URL de Mercure con topic `stage/{id}` vía `EventSource`.
+3. El `IngestionGateway` sigue en la API; el broadcast no necesita conocer al receptor.
+
+### 9.3 Backpressure y memoria
+
+- Los chunks VAD ya son finitos (`MAX_CHUNK_DURATION_MS`).
+- Para producción: colas por sesión (BullMQ sobre Redis) y `Worker Threads` para el transcode si la CPU es cuello de botella.
+- Persistencia (postgres ya provisionado): exportación SRT, glosarios, historial — fase posterior.
+
+---
+
+## 10. Comandos útiles Nx
+
+```bash
+pnpm nx graph          # visualiza el grafo de dependencias
+pnpm nx build api      # build de la API
+pnpm nx build web      # build de la web
+pnpm nx run-many --target=test --projects=api,web,shared-types
+```
+
+---
+
+## Licencia
+
+MIT — ver [LICENSE](./LICENSE).
