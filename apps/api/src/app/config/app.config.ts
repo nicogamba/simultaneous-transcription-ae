@@ -18,6 +18,6 @@ export function loadAppConfig(
     redisUrl: env['REDIS_URL'] ?? 'redis://localhost:6379',
     aiProvider: providerTypeFromString(env['AI_PROVIDER']),
     geminiApiKey: env['GEMINI_API_KEY'] ?? '',
-    geminiModel: env['GEMINI_MODEL'] ?? 'gemini-2.5-flash',
+    geminiModel: env['GEMINI_MODEL'] ?? 'gemini-3.8-flash',
   };
 }

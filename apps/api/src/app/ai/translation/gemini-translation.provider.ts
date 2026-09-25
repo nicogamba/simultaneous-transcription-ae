@@ -32,9 +32,10 @@ export class GeminiTranslationProvider
       (request: TranslationRequest) => this.callGemini(request),
       {
         timeout: 45000,
-        errorThresholdPercentage: 30,
+        errorThresholdPercentage: 50,
         resetTimeout: 30000,
         rollingCountTimeout: 60000,
+        volumeThreshold: 5,
         name: 'gemini-translation',
       },
     );
@@ -73,6 +74,29 @@ export class GeminiTranslationProvider
     const wav = pcmToWav(request.data, 16000);
     const base64 = Buffer.from(wav).toString('base64');
 
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.generate(base64, request);
+      } catch (error) {
+        lastError = error;
+        if (!this.isTransient(error)) {
+          throw error;
+        }
+        const delay = 500 * 2 ** attempt;
+        this.logger.warn(
+          `Transient Gemini error, retrying in ${delay}ms (attempt ${attempt + 1}/3)`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    throw lastError;
+  }
+
+  private async generate(
+    base64: string,
+    request: TranslationRequest,
+  ): Promise<TranslationResponse> {
     const response = await this.client.models.generateContent({
       model: this.config.model,
       contents: [
@@ -108,6 +132,14 @@ export class GeminiTranslationProvider
         .join('') ?? '';
 
     return this.parseResponse(raw);
+  }
+
+  private isTransient(error: unknown): boolean {
+    if (error && typeof error === 'object') {
+      const status = (error as { status?: number }).status;
+      return status === 429 || status === 500 || status === 502 || status === 503;
+    }
+    return false;
   }
 
   private parseResponse(raw: string): TranslationResponse {

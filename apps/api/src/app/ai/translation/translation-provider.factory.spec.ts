@@ -8,7 +8,7 @@ describe('TranslationProviderFactory', () => {
     const provider = createTranslationProvider({
       provider: ProviderType.MOCK,
       geminiApiKey: '',
-      geminiModel: 'gemini-2.5-flash',
+      geminiModel: 'gemini-3.8-flash',
     });
     expect(provider).toBeInstanceOf(MockTranslationProvider);
     expect(provider.type).toBe(ProviderType.MOCK);
@@ -18,7 +18,7 @@ describe('TranslationProviderFactory', () => {
     const provider = createTranslationProvider({
       provider: ProviderType.GEMINI,
       geminiApiKey: 'test-key',
-      geminiModel: 'gemini-2.5-flash',
+      geminiModel: 'gemini-3.8-flash',
     });
     expect(provider).toBeInstanceOf(GeminiTranslationProvider);
     expect(provider.type).toBe(ProviderType.GEMINI);

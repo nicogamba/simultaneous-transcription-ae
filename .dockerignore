@@ -5,3 +5,8 @@ dist
 coverage
 test-output
 .vscode
+.env
+.env.*
+.angular
+apps/*/dist
+apps/*/.angular

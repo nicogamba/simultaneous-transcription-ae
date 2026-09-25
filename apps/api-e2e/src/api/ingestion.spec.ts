@@ -9,7 +9,12 @@ import {
 import { AppModule } from '@simultaneous-transcription-ae/api/app/app.module';
 import { FakeVadProcessor } from '@simultaneous-transcription-ae/api/app/audio/fake-vad.processor';
 import { VAD_PROCESSOR } from '@simultaneous-transcription-ae/api/app/audio/vad.processor';
+import { TRANSLATION_PROVIDER } from '@simultaneous-transcription-ae/api/app/ai/translation/translation-provider.factory';
+import { MockTranslationProvider } from '@simultaneous-transcription-ae/api/app/ai/translation/mock-translation.provider';
 import { createSseReader } from './sse-reader';
+
+process.env['AI_PROVIDER'] = 'mock';
+process.env['GEMINI_API_KEY'] = '';
 
 const REDIS_URL = process.env['REDIS_URL'] ?? 'redis://localhost:6379';
 
@@ -23,6 +28,8 @@ async function startApp(): Promise<void> {
   })
     .overrideProvider(VAD_PROCESSOR)
     .useValue(new FakeVadProcessor())
+    .overrideProvider(TRANSLATION_PROVIDER)
+    .useValue(new MockTranslationProvider())
     .compile();
 
   app = moduleRef.createNestApplication();

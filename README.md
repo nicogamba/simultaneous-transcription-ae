@@ -183,7 +183,7 @@ libs/
 | `REDIS_URL` | URL de Redis | `redis://localhost:6379` |
 | `AI_PROVIDER` | `mock` \| `gemini` | `mock` |
 | `GEMINI_API_KEY` | Clave de Gemini (si `AI_PROVIDER=gemini`) | — |
-| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.8-flash` |
 | `MAX_CHUNK_DURATION_MS` | Duración máxima de chunk VAD | `5000` |
 | `VAD_SILENCE_THRESHOLD_MS` | Silencio que corta el chunk | `300` |
 | `VAD_FAKE` | `true` usa un VAD determinista (tests e2e) | `false` |

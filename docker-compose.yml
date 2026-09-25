@@ -38,8 +38,9 @@ services:
     environment:
       PORT: 3000
       REDIS_URL: redis://redis:6379
-      AI_PROVIDER: mock
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     ports:
       - '3000:3000'
     depends_on:
@@ -47,6 +48,16 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://localhost:3000/api').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   web:
@@ -57,7 +68,8 @@ services:
     ports:
       - '8080:80'
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

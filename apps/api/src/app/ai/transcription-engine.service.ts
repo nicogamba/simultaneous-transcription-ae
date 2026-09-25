@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   SourceLanguage,
   TargetLanguage,
@@ -13,6 +13,8 @@ import { TRANSLATION_PROVIDER } from './translation/translation-provider.factory
 
 @Injectable()
 export class TranscriptionEngine {
+  private readonly logger = new Logger(TranscriptionEngine.name);
+
   constructor(
     @Inject(TRANSLATION_PROVIDER)
     private readonly provider: ITranslationProvider,
@@ -34,6 +36,23 @@ export class TranscriptionEngine {
     };
 
     const response = await this.provider.processAudioChunk(request);
+
+    if (!response.sourceText && !response.translatedText) {
+      this.logger.debug(
+        `[${chunk.sessionId}] chunk #${chunk.sequenceId} produced empty text; skipping broadcast`,
+      );
+      return {
+        sessionId: chunk.sessionId,
+        sequenceId: chunk.sequenceId,
+        sourceLanguage,
+        targetLanguage,
+        sourceText: '',
+        translatedText: null,
+        startMs: chunk.startMs,
+        endMs: chunk.endMs,
+        createdAt: Date.now(),
+      };
+    }
 
     const result: TranscriptionResult = {
       sessionId: chunk.sessionId,
