@@ -6,6 +6,84 @@ Sistema open-source de transcripción y traducción de audio en tiempo real para
 
 ---
 
+## English — Quick Start & Usage Guide
+
+> This section is the English version of the setup and usage guide. The rest of the document is in Spanish.
+
+### Overview
+
+Open-source real-time audio transcription & translation for conferences. Capture audio via microphone or file upload, process it in chunks with Silero VAD, transcribe/translate with a pluggable AI strategy (mock or Gemini), and stream subtitles to a web audience and a transparent OBS overlay.
+
+### 1. Run it
+
+**Docker (full stack):**
+
+```bash
+cp .env.example .env     # tweak variables if needed
+docker compose up --build
+```
+
+- Web: `http://localhost:8080` — API: `http://localhost:3000/api`
+
+**Local dev:**
+
+```bash
+pnpm install
+docker compose up -d redis   # Redis is required for broadcast
+pnpm nx serve api            # Terminal 1
+pnpm nx serve web            # Terminal 2 (dev server proxies /api and /ingest to the API)
+```
+
+- Web: `http://localhost:4200` — API: `http://localhost:3000/api`
+
+### 2. Usage tutorial (demo)
+
+1. Open `http://localhost:8080` (Docker) or `http://localhost:4200` (dev).
+2. Use the **Global Navigation Bar** at the top to go to **Panel Admin**.
+3. The default stage id is `demo`. Choose the source and target languages and click **Conectar**.
+4. Upload an audio file (`.mp3` / `.wav`) and click **Transmitir archivo** — the file is streamed to the server in small fragments, simulating a live stream — or use **Iniciar micrófono**.
+5. Open a new tab and navigate to **Vista Audiencia** (`/stage/demo`) or **Vista OBS** (`/overlay/stage/demo`) to watch the live transcription and translation. Use the language toggle to switch between Original and Translation.
+6. When you are done, go back to the admin panel and click **Finalizar sesión**.
+
+> **OBS:** add `http://localhost:8080/overlay/stage/demo` as a browser source. It has a transparent background and must be the only thing rendered on that page (the navigation bar is hidden automatically on `/overlay`).
+
+### 3. Use the real Gemini driver
+
+```bash
+export AI_PROVIDER=gemini
+export GEMINI_API_KEY=your_key
+pnpm nx serve api
+```
+
+The pipeline does not change: `TranslationProviderFactory` picks the provider from `.env`. Default model: `gemini-3.8-flash`.
+
+### 4. Verify the broadcast without a browser
+
+```bash
+curl -N http://localhost:3000/api/stage/demo/subtitles
+```
+
+Publish a test payload to Redis:
+
+```bash
+redis-cli publish 'stage:demo:subtitles' '{"sessionId":"demo","event":"transcription","sequenceId":1,"result":{"sourceText":"hola","translatedText":"hello"},"status":null,"error":null,"serverTimestamp":0}'
+```
+
+### 5. Tests
+
+```bash
+pnpm nx test api
+pnpm nx test shared-types
+pnpm nx test web
+pnpm nx run api-e2e:e2e   # requires Redis running
+```
+
+### Troubleshooting
+
+- **Microphone logs `Invalid data found when processing input` in the API:** the web bundle is outdated. Rebuild it with `docker compose up --build -d web`. The fix streams MediaRecorder chunks with the WebM/EBML header prepended so every chunk is an independently decodable file (gapless streaming).
+
+---
+
 ## 1. Arquitectura
 
 ```
@@ -50,6 +128,7 @@ Sistema open-source de transcripción y traducción de audio en tiempo real para
 - **Sequence IDs + Jitter Buffer**: cada chunk VAD recibe un `sequenceId` estrictamente incremental por sesión. Las respuestas de IA llegan a distinta velocidad; el frontend las reordena por `sequenceId` en el jitter buffer antes de renderizar.
 - **Memoria**: los buffers de audio se liberan explícitamente (slicing + reassign), los streams de ffmpeg se gestionan con `on('error')`/`on('end')`, y hay graceful shutdown (`OnModuleDestroy`) que vacía sesiones, flushes VAD y cierra Redis.
 - **Race conditions**: el gateway serializa los mensajes por conexión (cola por conexión) para que `audio` se procese antes de `end`/`disconnect`; el pipeline serializa la ingesta por sesión.
+- **Streaming de micrófono gapless**: Chrome solo incluye la cabecera EBML en el primer chunk del `MediaRecorder`; los siguientes son Clusters sueltos que ffmpeg no puede decodificar por sí solos. El frontend la extrae (`extractWebmHeader`) y la antepone a cada fragmento posterior, de modo que cada mensaje WS es un WebM independiente y decodificable (sin micro-cortes de audio).
 
 ---
 
@@ -140,14 +219,18 @@ El pipeline no cambia: el `TranslationProviderFactory` selecciona el provider se
 
 ```bash
 # Conecta al SSE del stage
-curl -N http://localhost:3000/api/stage/stage-1/subtitles
+curl -N http://localhost:3000/api/stage/demo/subtitles
 ```
 
 Y publica un payload de prueba en Redis:
 
 ```bash
-redis-cli publish 'stage:stage-1:subtitles' '{"sessionId":"stage-1","event":"transcription","sequenceId":1,"result":{"sourceText":"hola","translatedText":"hello"},"status":null,"error":null,"serverTimestamp":0}'
+redis-cli publish 'stage:demo:subtitles' '{"sessionId":"demo","event":"transcription","sequenceId":1,"result":{"sourceText":"hola","translatedText":"hello"},"status":null,"error":null,"serverTimestamp":0}'
 ```
+
+### 5.4 Solución de problemas
+
+- **El micrófono lanza `Invalid data found when processing input` en la API:** el bundle web está desactualizado. Reconstruye la imagen (`docker compose up --build -d web`). El fix antepone la cabecera WebM/EBML a cada chunk de `MediaRecorder` para que cada mensaje sea un archivo decodificable de forma independiente (streaming gapless).
 
 ---
 
@@ -169,7 +252,8 @@ apps/
       broadcast/          # /admin/broadcast (AdminBroadcastComponent)
       stage/              # /stage/:id (StageSubtitlesComponent)
       overlay/            # /overlay/stage/:id (ObsOverlayComponent)
-      services/           # ws, sse, audio-capturer, subtitle-store, jitter-buffer
+      nav/                # GlobalNavComponent (barra de navegación)
+      services/           # ws, sse, audio-capturer, subtitle-store, jitter-buffer, webm-header
 libs/
   shared-types/           # DTOs, interfaces, enums (contracto compartido)
 ```
