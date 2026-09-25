@@ -1,0 +1,10 @@
+<div class="overlay">
+  <div class="subtitles">
+    @for (subtitle of store.visibleSubtitles(); track subtitle.sequenceId) {
+      @if (subtitle.translatedText) {
+        <p class="translated">{{ subtitle.translatedText }}</p>
+      }
+      <p class="source">{{ subtitle.sourceText }}</p>
+    }
+  </div>
+</div>

@@ -1,0 +1,47 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 4vw 8vh;
+  box-sizing: border-box;
+
+  .subtitles {
+    width: 92vw;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .translated {
+    margin: 0;
+    font-size: clamp(1.6rem, 4.5vw, 3.5rem);
+    font-weight: 900;
+    color: #fff;
+    text-shadow:
+      0.12em 0.12em 0 #000,
+      -0.06em -0.06em 0 #000,
+      0.06em -0.06em 0 #000,
+      -0.06em 0.06em 0 #000,
+      0.06em 0.06em 0 #000,
+      0 0 0.4em rgba(0, 0, 0, 0.9);
+    -webkit-text-stroke: 0.02em #000;
+    letter-spacing: 0.02em;
+  }
+
+  .source {
+    margin: 0;
+    font-size: clamp(0.9rem, 2vw, 1.5rem);
+    font-weight: 700;
+    color: #e5e7eb;
+    text-shadow:
+      0.1em 0.1em 0 #000,
+      0 0 0.4em rgba(0, 0, 0, 0.9);
+  }
+}
