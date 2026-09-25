@@ -28,9 +28,16 @@ export function silence(ms: number, sampleRate: number): Uint8Array {
 
 export const SAMPLE_RATE = 16000;
 
-export function makeConfig(overrides: Partial<{ maxChunkDurationMs: number; silenceThresholdMs: number }> = {}) {
+export function makeConfig(
+  overrides: Partial<{
+    maxChunkDurationMs: number;
+    minChunkDurationMs: number;
+    silenceThresholdMs: number;
+  }> = {},
+) {
   return {
     maxChunkDurationMs: overrides.maxChunkDurationMs ?? 5000,
+    minChunkDurationMs: overrides.minChunkDurationMs ?? 800,
     silenceThresholdMs: overrides.silenceThresholdMs ?? 300,
     sampleRate: SAMPLE_RATE,
     sampleWidthBytes: 2,

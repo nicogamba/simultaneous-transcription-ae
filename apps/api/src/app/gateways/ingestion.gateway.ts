@@ -13,7 +13,10 @@ import {
 } from '@simultaneous-transcription-ae/shared-types';
 import type { AudioChunkDto } from '@simultaneous-transcription-ae/shared-types';
 import { Logger } from '@nestjs/common';
-import { AudioPipelineService } from '../pipeline/audio-pipeline.service';
+import {
+  AudioPipelineService,
+  SessionNotFoundError,
+} from '../pipeline/audio-pipeline.service';
 
 interface IngestConnection {
   sessionId: string;
@@ -91,7 +94,11 @@ export class IngestionGateway
         new Uint8Array(data),
         payload.mimeType || connection.mimeType,
       ),
-    ).then(() => ({ ok: true }));
+    )
+      .then(() => ({ ok: true }))
+      .catch((error: unknown) =>
+        this.sessionEnded(connection.sessionId, error),
+      );
   }
 
   @SubscribeMessage('audio-binary')
@@ -109,7 +116,11 @@ export class IngestionGateway
         new Uint8Array(payload),
         connection.mimeType,
       ),
-    ).then(() => ({ ok: true }));
+    )
+      .then(() => ({ ok: true }))
+      .catch((error: unknown) =>
+        this.sessionEnded(connection.sessionId, error),
+      );
   }
 
   @SubscribeMessage('end')
@@ -117,7 +128,22 @@ export class IngestionGateway
     const connection = this.requireConnection(client.id);
     return this.enqueue(client.id, () =>
       this.pipeline.endSession(connection.sessionId),
-    ).then(() => ({ ok: true }));
+    )
+      .then(() => ({ ok: true }))
+      .catch((error: unknown) =>
+        this.sessionEnded(connection.sessionId, error),
+      );
+  }
+
+  private sessionEnded(
+    sessionId: string,
+    error: unknown,
+  ): Promise<{ ok: boolean }> {
+    if (error instanceof SessionNotFoundError) {
+      this.logger.debug(`Session ${sessionId} already ended; ignoring`);
+      return Promise.resolve({ ok: true });
+    }
+    return Promise.reject(error);
   }
 
   private enqueue(

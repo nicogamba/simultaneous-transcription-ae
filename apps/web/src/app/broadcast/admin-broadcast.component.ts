@@ -21,8 +21,8 @@ export class AdminBroadcastComponent {
   protected readonly ws = inject(WsService);
 
   protected readonly sessionId = signal('demo');
-  protected readonly sourceLanguage = signal<SourceLanguage>(SourceLanguage.EN);
-  protected readonly targetLanguage = signal<TargetLanguage>(TargetLanguage.ES);
+  protected readonly sourceLanguage = signal<SourceLanguage>(SourceLanguage.ES);
+  protected readonly targetLanguage = signal<TargetLanguage>(TargetLanguage.EN);
   protected readonly fileName = signal<string | null>(null);
   protected readonly message = signal<string>('');
   protected readonly phase = signal<Phase>('idle');

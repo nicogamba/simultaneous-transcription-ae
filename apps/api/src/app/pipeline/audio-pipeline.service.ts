@@ -15,6 +15,8 @@ import { SUBTITLE_BROADCASTER } from '../broadcast/subtitle-broadcaster.interfac
 import type { ISubtitleBroadcaster } from '../broadcast/subtitle-broadcaster.interface';
 import { TranscriptionEngine } from '../ai/transcription-engine.service';
 
+export const PCM_MIME_TYPE = 'audio/pcm';
+
 interface PipelineSession {
   config: CreateSessionDto;
   status: SessionStatus;
@@ -76,14 +78,18 @@ export class AudioPipelineService implements OnModuleDestroy {
         return;
       }
       let pcm: Uint8Array;
-      try {
-        pcm = await this.acoustic.transcodeToPcm16kMono(data, mimeType);
-      } catch (error) {
-        this.logger.error(
-          `[${sessionId}] failed to transcode ${mimeType} chunk; dropping`,
-          error,
-        );
-        return;
+      if (mimeType === PCM_MIME_TYPE) {
+        pcm = data;
+      } else {
+        try {
+          pcm = await this.acoustic.transcodeToPcm16kMono(data, mimeType);
+        } catch (error) {
+          this.logger.error(
+            `[${sessionId}] failed to transcode ${mimeType} chunk; dropping`,
+            error,
+          );
+          return;
+        }
       }
       const chunks = await this.vad.ingestPcm(sessionId, pcm);
       const dispatched = this.dispatchChunks(session, chunks);

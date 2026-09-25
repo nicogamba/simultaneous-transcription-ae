@@ -4,36 +4,57 @@ import { FakeVadProcessor, int16Samples, makeConfig, silence } from './testing/v
 
 const SAMPLE_RATE = 16000;
 
-function buildVad(segments: Array<{ start: number; end: number }> = []) {
+function speechMs(ms: number): Uint8Array {
+  const samples = Math.floor((ms * SAMPLE_RATE) / 1000);
+  return int16Samples(
+    Array(samples)
+      .fill(0)
+      .map((_, i) => Math.round(Math.sin(i / 10) * 3000)),
+  );
+}
+
+function buildVad(
+  segments: Array<{ start: number; end: number }> = [],
+  config = makeConfig(),
+) {
   const fake = new FakeVadProcessor(segments);
-  const service = new SileroVadService(fake, makeConfig());
+  const service = new SileroVadService(fake, config);
   return { fake, service };
 }
 
 describe('SileroVadService', () => {
   describe('chunking by silence gap', () => {
-    it('cuts a chunk when trailing silence exceeds the threshold', async () => {
-      const speech = int16Samples(Array(1600).fill(0).map((_, i) => Math.round(Math.sin(i / 10) * 3000)));
-      const silenceMs = 400;
+    it('cuts a chunk when trailing silence exceeds the threshold and the utterance meets the min duration', async () => {
+      const speech = speechMs(1000);
       const speechSamples = speech.byteLength / 2;
-      const silenceSamples = Math.floor((silenceMs * SAMPLE_RATE) / 1000);
       const { service } = buildVad([{ start: 0, end: speechSamples }]);
 
       const chunks1 = await service.ingestPcm('s1', speech);
       expect(chunks1).toHaveLength(0);
 
-      const chunks2 = await service.ingestPcm('s1', silence(silenceMs, SAMPLE_RATE));
+      const chunks2 = await service.ingestPcm('s1', silence(400, SAMPLE_RATE));
       expect(chunks2).toHaveLength(1);
       expect(chunks2[0].sequenceId).toBe(0);
       expect(chunks2[0].startMs).toBe(0);
       expect(chunks2[0].endMs).toBe((speechSamples / SAMPLE_RATE) * 1000);
     });
 
-    it('does NOT cut when trailing silence is below threshold', async () => {
-      const speechSamples = 3200;
+    it('does NOT cut a short utterance below the min chunk duration even with trailing silence', async () => {
+      const speech = speechMs(400);
+      const speechSamples = speech.byteLength / 2;
       const { service } = buildVad([{ start: 0, end: speechSamples }]);
 
-      await service.ingestPcm('s1', int16Samples(Array(3200).fill(100)));
+      await service.ingestPcm('s1', speech);
+      const chunks = await service.ingestPcm('s1', silence(400, SAMPLE_RATE));
+
+      expect(chunks).toHaveLength(0);
+    });
+
+    it('does NOT cut when trailing silence is below threshold', async () => {
+      const speechSamples = 16000;
+      const { service } = buildVad([{ start: 0, end: speechSamples }]);
+
+      await service.ingestPcm('s1', speechMs(1000));
       const chunks = await service.ingestPcm('s1', silence(100, SAMPLE_RATE));
 
       expect(chunks).toHaveLength(0);
@@ -76,24 +97,34 @@ describe('SileroVadService', () => {
 
   describe('sequence ids', () => {
     it('assigns strictly incrementing sequence ids per session', async () => {
-      const { service } = buildVad([{ start: 0, end: 1600 }]);
-      await service.ingestPcm('s4', int16Samples(Array(1600).fill(100)));
-      const c1 = await service.ingestPcm('s4', silence(400, SAMPLE_RATE));
-      const c2 = await service.ingestPcm('s4', silence(400, SAMPLE_RATE));
+      const maxChunk = 2000;
+      const service = new SileroVadService(
+        new FakeVadProcessor([
+          { start: 0, end: (maxChunk * SAMPLE_RATE) / 1000 },
+        ]),
+        makeConfig({ maxChunkDurationMs: maxChunk }),
+      );
 
+      const c1 = await service.ingestPcm('s4', speechMs(maxChunk));
+      const c2 = await service.ingestPcm('s4', speechMs(maxChunk));
+
+      expect(c1).toHaveLength(1);
+      expect(c2).toHaveLength(1);
       expect(c1[0].sequenceId).toBe(0);
       expect(c2[0].sequenceId).toBe(1);
     });
 
     it('keeps per-session counters independent', async () => {
-      const fake = new FakeVadProcessor([{ start: 0, end: 1600 }]);
-      const service = new SileroVadService(fake, makeConfig());
+      const maxChunk = 2000;
+      const service = new SileroVadService(
+        new FakeVadProcessor([
+          { start: 0, end: (maxChunk * SAMPLE_RATE) / 1000 },
+        ]),
+        makeConfig({ maxChunkDurationMs: maxChunk }),
+      );
 
-      await service.ingestPcm('a', int16Samples(Array(1600).fill(100)));
-      await service.ingestPcm('b', int16Samples(Array(1600).fill(100)));
-
-      const ca = await service.ingestPcm('a', silence(400, SAMPLE_RATE));
-      const cb = await service.ingestPcm('b', silence(400, SAMPLE_RATE));
+      const ca = await service.ingestPcm('a', speechMs(maxChunk));
+      const cb = await service.ingestPcm('b', speechMs(maxChunk));
 
       expect(ca[0].sequenceId).toBe(0);
       expect(cb[0].sequenceId).toBe(0);
@@ -102,8 +133,8 @@ describe('SileroVadService', () => {
 
   describe('memory management', () => {
     it('flushes pending speech on endSession and clears state', async () => {
-      const { service } = buildVad([{ start: 0, end: 1600 }]);
-      await service.ingestPcm('s5', int16Samples(Array(1600).fill(100)));
+      const { service } = buildVad([{ start: 0, end: 16000 }]);
+      await service.ingestPcm('s5', speechMs(1000));
 
       const flushed = await service.flushSession('s5');
       expect(flushed).toHaveLength(1);

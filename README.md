@@ -40,7 +40,7 @@ pnpm nx serve web            # Terminal 2 (dev server proxies /api and /ingest t
 
 1. Open `http://localhost:8080` (Docker) or `http://localhost:4200` (dev).
 2. Use the **Global Navigation Bar** at the top to go to **Panel Admin**.
-3. The default stage id is `demo`. Choose the source and target languages and click **Conectar**.
+3. The default stage id is `demo` and the default languages are **Spanish (es) → English (en)**. Adjust them if needed and click **Conectar**.
 4. Upload an audio file (`.mp3` / `.wav`) and click **Transmitir archivo** — the file is streamed to the server in small fragments, simulating a live stream — or use **Iniciar micrófono**.
 5. Open a new tab and navigate to **Vista Audiencia** (`/stage/demo`) or **Vista OBS** (`/overlay/stage/demo`) to watch the live transcription and translation. Use the language toggle to switch between Original and Translation.
 6. When you are done, go back to the admin panel and click **Finalizar sesión**.
@@ -80,7 +80,7 @@ pnpm nx run api-e2e:e2e   # requires Redis running
 
 ### Troubleshooting
 
-- **Microphone logs `Invalid data found when processing input` in the API:** the web bundle is outdated. Rebuild it with `docker compose up --build -d web`. The fix streams MediaRecorder chunks with the WebM/EBML header prepended so every chunk is an independently decodable file (gapless streaming).
+- **Microphone produces no subtitles or logs `Invalid data found when processing input` in the API:** the web bundle is outdated. Rebuild it with `docker compose up --build -d web`. The mic now captures raw PCM via the Web Audio API (`audio/pcm`) and feeds it directly to the VAD, bypassing ffmpeg — no WebM/MediaRecorder involved.
 
 ---
 
@@ -128,7 +128,7 @@ pnpm nx run api-e2e:e2e   # requires Redis running
 - **Sequence IDs + Jitter Buffer**: cada chunk VAD recibe un `sequenceId` estrictamente incremental por sesión. Las respuestas de IA llegan a distinta velocidad; el frontend las reordena por `sequenceId` en el jitter buffer antes de renderizar.
 - **Memoria**: los buffers de audio se liberan explícitamente (slicing + reassign), los streams de ffmpeg se gestionan con `on('error')`/`on('end')`, y hay graceful shutdown (`OnModuleDestroy`) que vacía sesiones, flushes VAD y cierra Redis.
 - **Race conditions**: el gateway serializa los mensajes por conexión (cola por conexión) para que `audio` se procese antes de `end`/`disconnect`; el pipeline serializa la ingesta por sesión.
-- **Streaming de micrófono gapless**: Chrome solo incluye la cabecera EBML en el primer chunk del `MediaRecorder`; los siguientes son Clusters sueltos que ffmpeg no puede decodificar por sí solos. El frontend la extrae (`extractWebmHeader`) y la antepone a cada fragmento posterior, de modo que cada mensaje WS es un WebM independiente y decodificable (sin micro-cortes de audio).
+- **Micrófono PCM directo (gapless)**: el micrófono captura audio con Web Audio API (`AudioContext` a 16kHz, mono, Int16) y lo envía como `audio/pcm`, bypasseando ffmpeg en el backend e inyectándolo directo al VAD. Sin contenedores WebM, sin cortes de audio, y con `MIN_CHUNK_DURATION_MS` para evitar micro-fragmentos hacia la IA.
 
 ---
 
@@ -201,7 +201,7 @@ pnpm nx serve web
 
 1. Abre `http://localhost:8080` (si usas Docker) o `http://localhost:4200` (desarrollo local).
 2. Usa la **Barra de Navegación Global** superior para ir a `Panel Admin`.
-3. En el panel, el ID del escenario por defecto es `demo`. Selecciona el idioma original y el de destino, y pulsa **Conectar**.
+3. En el panel, el ID del escenario por defecto es `demo` y los idiomas por defecto son **Español (es) → Inglés (en)**. Ajústalos si hace falta y pulsa **Conectar**.
 4. Sube un archivo de audio (`.mp3` o `.wav`) y haz clic en **Transmitir archivo**, o utiliza **Iniciar micrófono**.
 5. Abre una nueva pestaña, navega a la **Vista Audiencia** (`/stage/demo`) o a la **Vista OBS** (`/overlay/stage/demo`) para ver la transcripción y traducción en tiempo real. Utiliza el toggle para alternar entre idiomas.
 
@@ -230,7 +230,7 @@ redis-cli publish 'stage:demo:subtitles' '{"sessionId":"demo","event":"transcrip
 
 ### 5.4 Solución de problemas
 
-- **El micrófono lanza `Invalid data found when processing input` en la API:** el bundle web está desactualizado. Reconstruye la imagen (`docker compose up --build -d web`). El fix antepone la cabecera WebM/EBML a cada chunk de `MediaRecorder` para que cada mensaje sea un archivo decodificable de forma independiente (streaming gapless).
+- **El micrófono no genera subtítulos o lanza `Invalid data found when processing input` en la API:** el bundle web está desactualizado. Reconstruye la imagen (`docker compose up --build -d web`). El micrófono ahora captura PCM crudo con Web Audio API (`audio/pcm`) y lo alimenta directo al VAD, bypasseando ffmpeg — sin WebM/MediaRecorder.
 
 ---
 
@@ -270,6 +270,7 @@ libs/
 | `GEMINI_API_KEY` | Clave de Gemini (si `AI_PROVIDER=gemini`) | — |
 | `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.8-flash` |
 | `MAX_CHUNK_DURATION_MS` | Duración máxima de chunk VAD | `5000` |
+| `MIN_CHUNK_DURATION_MS` | Duración mínima de chunk VAD (evita micro-fragmentos a la IA) | `800` |
 | `VAD_SILENCE_THRESHOLD_MS` | Silencio que corta el chunk | `300` |
 | `VAD_FAKE` | `true` usa un VAD determinista (tests e2e) | `false` |
 

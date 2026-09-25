@@ -99,6 +99,32 @@ describe('AudioPipelineService', () => {
     expect(result.sourceText).toContain('mock:0');
   });
 
+  it('feeds audio/pcm directly to the VAD, bypassing ffmpeg', async () => {
+    const broadcaster = new FakeBroadcaster();
+    const vad = new FakeVad();
+    const acoustic = {
+      transcodeToPcm16kMono: jest.fn(async (data: Uint8Array) => data),
+    };
+    const engine = new TranscriptionEngine(
+      new MockTranslationProvider(),
+      broadcaster,
+    );
+    const pipeline = new AudioPipelineService(
+      acoustic as never,
+      vad as never,
+      engine,
+      broadcaster,
+    );
+    pipeline.registerSession(makeSession({ id: 'stage-pcm' }));
+
+    const data = pcm(500);
+    await pipeline.ingest('stage-pcm', data, 'audio/pcm');
+
+    expect(acoustic.transcodeToPcm16kMono).not.toHaveBeenCalled();
+    expect(broadcaster.transcriptions).toHaveLength(1);
+    expect(broadcaster.transcriptions[0].sessionId).toBe('stage-pcm');
+  });
+
   it('supports multiple concurrent sessions independently', async () => {
     const { pipeline, broadcaster } = makePipeline();
     pipeline.registerSession(makeSession({ id: 'stage-1' }));

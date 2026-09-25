@@ -90,6 +90,10 @@ export class SileroVadService implements OnModuleDestroy {
       this.config.silenceThresholdMs,
       this.config.sampleRate,
     );
+    const minChunkSamples = msToSamples(
+      this.config.minChunkDurationMs,
+      this.config.sampleRate,
+    );
     const maxChunkSamples = msToSamples(
       this.config.maxChunkDurationMs,
       this.config.sampleRate,
@@ -110,7 +114,11 @@ export class SileroVadService implements OnModuleDestroy {
         state.pending = new Uint8Array(0);
         return [];
       }
-    } else if (trailingSilence >= silenceSamples && lastSpeechEnd > 0) {
+    } else if (
+      trailingSilence >= silenceSamples &&
+      lastSpeechEnd >= minChunkSamples &&
+      lastSpeechEnd > 0
+    ) {
       cutSample = lastSpeechEnd;
     }
 

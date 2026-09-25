@@ -18,8 +18,8 @@
         (ngModelChange)="sourceLanguage.set($event)"
         [disabled]="ws.status() === 'connected'"
       >
-        <option [ngValue]="'en'">Inglés (EN)</option>
         <option [ngValue]="'es'">Español (ES)</option>
+        <option [ngValue]="'en'">Inglés (EN)</option>
       </select>
     </label>
     <label>
@@ -29,8 +29,8 @@
         (ngModelChange)="targetLanguage.set($event)"
         [disabled]="ws.status() === 'connected'"
       >
-        <option [ngValue]="'es'">Español (ES)</option>
         <option [ngValue]="'en'">Inglés (EN)</option>
+        <option [ngValue]="'es'">Español (ES)</option>
       </select>
     </label>
     <button

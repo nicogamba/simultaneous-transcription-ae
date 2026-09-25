@@ -1,9 +1,15 @@
 import { Injectable, signal } from '@angular/core';
 import { WsService } from './ws.service';
-import { extractWebmHeader } from './webm-header.util';
+import {
+  downmixToMono,
+  float32ToInt16,
+  MIC_SAMPLE_RATE,
+  PCM_MIME_TYPE,
+} from './pcm.utils';
 
 export const FILE_CHUNK_BYTES = 48 * 1024;
 export const FILE_CHUNK_INTERVAL_MS = 400;
+export const MIC_BUFFER_MS = 1500;
 
 @Injectable({ providedIn: 'root' })
 export class AudioCapturerService {
@@ -12,40 +18,54 @@ export class AudioCapturerService {
   readonly fileStreaming = signal(false);
   readonly fileProgress = signal(0);
 
-  private recorder: MediaRecorder | null = null;
+  private audioContext: AudioContext | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private processor: ScriptProcessorNode | null = null;
   private stream: MediaStream | null = null;
   private fileCancelled = false;
-  private micHeader: Blob | null = null;
 
   constructor(private readonly ws: WsService) {}
 
-  async startMic(timesliceMs = 1500): Promise<void> {
-    if (this.recorder) {
+  async startMic(): Promise<void> {
+    if (this.audioContext) {
       return;
     }
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = this.pickMimeType();
-    this.mimeType.set(mimeType);
-    this.micHeader = null;
-    this.recorder = new MediaRecorder(
-      this.stream,
-      mimeType ? { mimeType } : undefined,
-    );
-    this.recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        void this.sendMicBlob(event.data);
+    this.mimeType.set(PCM_MIME_TYPE);
+
+    const context = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
+    await context.resume();
+    const source = context.createMediaStreamSource(this.stream);
+
+    const processor = context.createScriptProcessor(4096, 2, 1);
+    processor.onaudioprocess = (event) => {
+      const channels: Float32Array[] = [];
+      for (let c = 0; c < event.inputBuffer.numberOfChannels; c++) {
+        channels.push(event.inputBuffer.getChannelData(c));
       }
+      const mono = downmixToMono(channels);
+      const pcm = float32ToInt16(mono);
+      void this.sendPcm(pcm);
     };
-    this.recorder.start(timesliceMs);
+
+    source.connect(processor);
+    processor.connect(context.destination);
+
+    this.audioContext = context;
+    this.sourceNode = source;
+    this.processor = processor;
     this.recording.set(true);
   }
 
   stopMic(): void {
-    this.recorder?.stop();
-    this.recorder = null;
+    this.processor?.disconnect();
+    this.sourceNode?.disconnect();
+    void this.audioContext?.close();
+    this.audioContext = null;
+    this.sourceNode = null;
+    this.processor = null;
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
-    this.micHeader = null;
     this.recording.set(false);
   }
 
@@ -92,32 +112,21 @@ export class AudioCapturerService {
   }
 
   /**
- * Sends a MediaRecorder mic blob. Chrome's MediaRecorder only includes the
- * EBML/WebM header in the first chunk; later chunks are bare Clusters that
- * ffmpeg cannot parse alone. We extract the header once and prepend it to
- * every subsequent chunk so each message is an independently decodable WebM.
- */
-private async sendMicBlob(blob: Blob): Promise<void> {
-  try {
-    let payload = blob;
-    if (!this.micHeader) {
-      const header = await extractWebmHeader(blob);
-      if (header) {
-        this.micHeader = header;
-      }
-    } else {
-      payload = new Blob([this.micHeader, blob], { type: blob.type });
+   * Sends a raw 16kHz mono 16-bit PCM buffer (mic capture via Web Audio API).
+   * The backend feeds it straight to the VAD, bypassing ffmpeg.
+   */
+  private async sendPcm(pcm: Uint8Array): Promise<void> {
+    try {
+      const base64 = await arrayBufferToBase64(pcm.buffer);
+      await this.ws.sendAudio({
+        mimeType: PCM_MIME_TYPE,
+        data: base64,
+        clientTimestamp: Date.now(),
+      });
+    } catch (error) {
+      console.error('Failed to send PCM buffer', error);
     }
-    const base64 = await this.readAsBase64(payload);
-    await this.ws.sendAudio({
-      mimeType: this.mimeType(),
-      data: base64,
-      clientTimestamp: Date.now(),
-    });
-  } catch (error) {
-    console.error('Failed to send mic blob', error);
   }
-}
 
   private readAsBase64(blob: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -131,13 +140,16 @@ private async sendMicBlob(blob: Blob): Promise<void> {
       reader.readAsDataURL(blob);
     });
   }
+}
 
-  private pickMimeType(): string {
-    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-    return (
-      candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? ''
-    );
+function arrayBufferToBase64(buffer: ArrayBufferLike): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
+  return btoa(binary);
 }
 
 function delay(ms: number): Promise<void> {
