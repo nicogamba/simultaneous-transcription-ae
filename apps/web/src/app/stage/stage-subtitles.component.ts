@@ -33,4 +33,17 @@ export class StageSubtitlesComponent implements OnInit, OnDestroy {
   protected selectMode(mode: DisplayMode): void {
     this.store.setDisplayMode(mode);
   }
+
+  protected sourceLabel(): string {
+    const source = this.store.currentLanguages().source;
+    return source ? `Original (${source.toUpperCase()})` : 'Original';
+  }
+
+  protected translationLabel(): string {
+    const target = this.store.currentLanguages().target;
+    if (!target) {
+      return 'Traducción';
+    }
+    return target === 'es' ? 'Español (ES)' : `Traducción (${target.toUpperCase()})`;
+  }
 }

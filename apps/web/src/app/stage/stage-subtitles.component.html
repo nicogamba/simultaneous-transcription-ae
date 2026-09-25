@@ -12,24 +12,22 @@
     }
   </header>
 
-  @if (store.currentLanguages().source) {
-    <nav class="language-toggle">
-      <button
-        class="lang"
-        [class.active]="isActive('original')"
-        (click)="selectMode('original')"
-      >
-        Original ({{ store.currentLanguages().source | uppercase }})
-      </button>
-      <button
-        class="lang"
-        [class.active]="isActive('translation')"
-        (click)="selectMode('translation')"
-      >
-        {{ store.currentLanguages().target === 'es' ? 'Español' : 'Traducción' }} ({{ store.currentLanguages().target | uppercase }})
-      </button>
-    </nav>
-  }
+  <nav class="language-toggle">
+    <button
+      class="lang"
+      [class.active]="isActive('original')"
+      (click)="selectMode('original')"
+    >
+      {{ sourceLabel() }}
+    </button>
+    <button
+      class="lang"
+      [class.active]="isActive('translation')"
+      (click)="selectMode('translation')"
+    >
+      {{ translationLabel() }}
+    </button>
+  </nav>
 
   @if (store.error()) {
     <p class="error">{{ store.error() }}</p>

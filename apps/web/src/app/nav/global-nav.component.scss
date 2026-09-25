@@ -1,0 +1,36 @@
+.global-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 1.25rem;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  font-family: system-ui, sans-serif;
+
+  .link {
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      color: #e2e8f0;
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    &.active {
+      color: #fff;
+      background: rgba(37, 99, 235, 0.55);
+    }
+  }
+}
