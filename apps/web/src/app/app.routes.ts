@@ -5,19 +5,23 @@ export const appRoutes: Route[] = [
   {
     path: 'admin/broadcast',
     loadComponent: () =>
-      import('./broadcast/broadcast.component').then(
-        (m) => m.BroadcastComponent,
+      import('./broadcast/admin-broadcast.component').then(
+        (m) => m.AdminBroadcastComponent,
       ),
   },
   {
     path: 'stage/:id',
     loadComponent: () =>
-      import('./stage/stage.component').then((m) => m.StageComponent),
+      import('./stage/stage-subtitles.component').then(
+        (m) => m.StageSubtitlesComponent,
+      ),
   },
   {
     path: 'overlay/stage/:id',
     loadComponent: () =>
-      import('./overlay/overlay.component').then((m) => m.OverlayComponent),
+      import('./overlay/obs-overlay.component').then(
+        (m) => m.ObsOverlayComponent,
+      ),
   },
   { path: '**', redirectTo: '/stage/demo' },
 ];

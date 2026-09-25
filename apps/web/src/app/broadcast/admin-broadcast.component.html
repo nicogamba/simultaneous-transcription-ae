@@ -1,0 +1,88 @@
+<div class="broadcast">
+  <h1>Panel de Broadcast</h1>
+
+  <section class="config">
+    <label>
+      Escenario (stage id)
+      <input
+        type="text"
+        [ngModel]="sessionId()"
+        (ngModelChange)="sessionId.set($event)"
+        [disabled]="ws.status() === 'connected'"
+      />
+    </label>
+    <label>
+      Idioma fuente
+      <select
+        [ngModel]="sourceLanguage()"
+        (ngModelChange)="sourceLanguage.set($event)"
+        [disabled]="ws.status() === 'connected'"
+      >
+        <option [ngValue]="'en'">Inglés (EN)</option>
+        <option [ngValue]="'es'">Español (ES)</option>
+      </select>
+    </label>
+    <label>
+      Idioma destino
+      <select
+        [ngModel]="targetLanguage()"
+        (ngModelChange)="targetLanguage.set($event)"
+        [disabled]="ws.status() === 'connected'"
+      >
+        <option [ngValue]="'es'">Español (ES)</option>
+        <option [ngValue]="'en'">Inglés (EN)</option>
+      </select>
+    </label>
+    <button
+      class="primary"
+      (click)="connect()"
+      [disabled]="ws.status() === 'connected' || ws.status() === 'connecting'"
+    >
+      {{ ws.status() === 'connecting' ? 'Conectando…' : 'Conectar' }}
+    </button>
+  </section>
+
+  <p class="state" [class.ok]="ws.status() === 'connected'" [class.err]="ws.status() === 'error'">
+    WebSocket: {{ ws.status() }}
+  </p>
+
+  <section class="source">
+    <h2>Fuente de audio</h2>
+
+    <div class="mic">
+      <button (click)="startMic()" [disabled]="phase() !== 'idle' || ws.status() !== 'connected'">
+        Iniciar micrófono
+      </button>
+      <button (click)="stopMic()" [disabled]="phase() !== 'mic'">Detener micrófono</button>
+    </div>
+
+    <div class="file">
+      <input
+        id="file-input"
+        type="file"
+        accept=".mp3,.wav"
+        (change)="onFileSelected($event)"
+        [disabled]="phase() !== 'idle'"
+      />
+      <button (click)="streamFile()" [disabled]="phase() !== 'idle' || !fileName() || ws.status() !== 'connected'">
+        Transmitir archivo
+      </button>
+      <button (click)="stopFileStream()" [disabled]="phase() !== 'file'">Detener</button>
+    </div>
+
+    @if (phase() === 'file') {
+      <div class="progress">
+        <div class="bar" [style.width.%]="capturer.fileProgress()"></div>
+        <span>{{ capturer.fileProgress() }}%</span>
+      </div>
+    }
+  </section>
+
+  <section class="actions">
+    <button class="danger" (click)="endSession()" [disabled]="ws.status() === 'disconnected'">
+      Finalizar sesión
+    </button>
+  </section>
+
+  <p class="message" [class.error]="message().includes('Error')">{{ message() }}</p>
+</div>

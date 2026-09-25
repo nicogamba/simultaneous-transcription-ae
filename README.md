@@ -165,10 +165,10 @@ apps/
   api-e2e/                # tests e2e (in-process Nest): WS -> pipeline -> Redis -> SSE
   web/                    # Angular 22 standalone
     src/app/
-      broadcast/          # /admin/broadcast
-      stage/              # /stage/:id
-      overlay/            # /overlay/stage/:id
-      services/           # ingestion, audio-capturer, stage-sse, subtitle-store, jitter-buffer
+      broadcast/          # /admin/broadcast (AdminBroadcastComponent)
+      stage/              # /stage/:id (StageSubtitlesComponent)
+      overlay/            # /overlay/stage/:id (ObsOverlayComponent)
+      services/           # ws, sse, audio-capturer, subtitle-store, jitter-buffer
 libs/
   shared-types/           # DTOs, interfaces, enums (contracto compartido)
 ```

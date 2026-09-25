@@ -70,13 +70,54 @@ describe('SubtitleStore', () => {
     expect(store.error()).toBe('boom');
   });
 
-  it('only exposes the last two visible subtitles', () => {
+  it('only exposes the last four visible subtitles in order', () => {
     const store = new SubtitleStore();
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       store.handle(payload(result(i)));
     }
 
-    expect(store.visibleSubtitles().map((r) => r.sequenceId)).toEqual([3, 4]);
+    expect(store.visibleSubtitles().map((r) => r.sequenceId)).toEqual([
+      3, 4, 5, 6,
+    ]);
+  });
+
+  it('shows source text in original mode', () => {
+    const store = new SubtitleStore();
+    store.handle(payload(result(0)));
+    store.setDisplayMode('original');
+
+    expect(store.visibleTexts()[0].text).toBe('text-0');
+  });
+
+  it('shows translated text (fallback to source) in translation mode', () => {
+    const store = new SubtitleStore();
+    store.handle(payload(result(0)));
+    store.setDisplayMode('translation');
+
+    expect(store.visibleTexts()[0].text).toBe('trad-0');
+  });
+
+  it('falls back to source text when no translation exists', () => {
+    const store = new SubtitleStore();
+    const withoutTranslation: TranscriptionResult = {
+      ...result(0),
+      translatedText: null,
+    };
+    store.handle(payload(withoutTranslation));
+    store.setDisplayMode('translation');
+
+    expect(store.visibleTexts()[0].text).toBe('text-0');
+  });
+
+  it('exposes current source/target languages from the latest result', () => {
+    const store = new SubtitleStore();
+    expect(store.currentLanguages().source).toBeNull();
+
+    store.handle(payload(result(0)));
+    expect(store.currentLanguages()).toEqual({
+      source: SourceLanguage.EN,
+      target: TargetLanguage.ES,
+    });
   });
 
   it('resets state', () => {
@@ -87,5 +128,6 @@ describe('SubtitleStore', () => {
     expect(store.subtitleHistory()).toHaveLength(0);
     expect(store.status()).toBeNull();
     expect(store.error()).toBeNull();
+    expect(store.displayMode()).toBe('translation');
   });
 });

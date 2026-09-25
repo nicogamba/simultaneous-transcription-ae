@@ -1,0 +1,126 @@
+.stage {
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(37, 99, 235, 0.18), transparent 60%),
+    linear-gradient(180deg, #05070d 0%, #0b0f14 100%);
+  color: #fff;
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin: 0;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+
+    .session {
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+
+    .reconnecting {
+      font-size: 0.75rem;
+      color: #f59e0b;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .live {
+      font-size: 0.75rem;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+
+      &.on {
+        color: #22c55e;
+      }
+    }
+  }
+
+  .language-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+
+    .lang {
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.15s ease;
+
+      &.active {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #fff;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .subtitles {
+    width: min(860px, 90vw);
+    min-height: 30vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: clamp(1.4rem, 3.4vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0;
+    animation: fade-in 0.3s ease;
+    color: #f8fafc;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  .empty {
+    color: #475569;
+    text-align: center;
+  }
+
+  .error {
+    color: #f87171;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

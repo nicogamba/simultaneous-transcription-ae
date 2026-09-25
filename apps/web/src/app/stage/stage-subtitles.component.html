@@ -1,0 +1,45 @@
+<div class="stage">
+  <header>
+    <h1>Subtítulos en vivo</h1>
+    <span class="session">Stage: {{ sessionId() }}</span>
+
+    @if (sse.status() === 'reconnecting' || sse.status() === 'connecting') {
+      <span class="reconnecting">Reconectando…</span>
+    } @else if (sse.status() === 'error') {
+      <span class="reconnecting">Error de conexión</span>
+    } @else {
+      <span class="live" [class.on]="sse.status() === 'connected'">● En vivo</span>
+    }
+  </header>
+
+  @if (store.currentLanguages().source) {
+    <nav class="language-toggle">
+      <button
+        class="lang"
+        [class.active]="isActive('original')"
+        (click)="selectMode('original')"
+      >
+        Original ({{ store.currentLanguages().source | uppercase }})
+      </button>
+      <button
+        class="lang"
+        [class.active]="isActive('translation')"
+        (click)="selectMode('translation')"
+      >
+        {{ store.currentLanguages().target === 'es' ? 'Español' : 'Traducción' }} ({{ store.currentLanguages().target | uppercase }})
+      </button>
+    </nav>
+  }
+
+  @if (store.error()) {
+    <p class="error">{{ store.error() }}</p>
+  }
+
+  <div class="subtitles">
+    @for (subtitle of store.visibleTexts(); track subtitle.sequenceId) {
+      <p class="subtitle">{{ subtitle.text }}</p>
+    } @empty {
+      <p class="empty">Esperando subtítulos…</p>
+    }
+  </div>
+</div>

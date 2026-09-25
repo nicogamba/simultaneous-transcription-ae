@@ -1,0 +1,48 @@
+:host {
+  display: block;
+  background-color: transparent !important;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 4vw 8vh;
+  box-sizing: border-box;
+
+  .subtitles {
+    width: 92vw;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .subtitle {
+    margin: 0;
+    font-size: clamp(1.6rem, 4.5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.25;
+    color: #ffffff;
+    -webkit-text-stroke: 2px #000000;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    animation: fade-in 0.25s ease;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

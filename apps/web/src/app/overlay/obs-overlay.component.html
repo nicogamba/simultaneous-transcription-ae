@@ -1,0 +1,7 @@
+<div class="overlay">
+  <div class="subtitles">
+    @for (subtitle of store.visibleTexts(); track subtitle.sequenceId) {
+      <p class="subtitle">{{ subtitle.text }}</p>
+    }
+  </div>
+</div>

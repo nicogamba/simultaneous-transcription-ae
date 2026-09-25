@@ -1,17 +1,17 @@
 import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { StageSseService } from '../services/stage-sse.service';
+import { SseService } from '../services/sse.service';
 import { SubtitleStore } from '../services/subtitle-store.service';
 
 @Component({
-  selector: 'app-overlay',
+  selector: 'app-obs-overlay',
   imports: [],
-  templateUrl: './overlay.component.html',
-  styleUrl: './overlay.component.scss',
+  templateUrl: './obs-overlay.component.html',
+  styleUrl: './obs-overlay.component.scss',
 })
-export class OverlayComponent implements OnInit, OnDestroy {
+export class ObsOverlayComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly sse = inject(StageSseService);
+  protected readonly sse = inject(SseService);
   protected readonly store = inject(SubtitleStore);
   protected readonly sessionId = signal<string>('');
 

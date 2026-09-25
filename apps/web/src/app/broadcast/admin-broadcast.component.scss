@@ -36,6 +36,8 @@
     display: flex;
     gap: 0.5rem;
     margin-top: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   button {
@@ -60,16 +62,52 @@
     }
   }
 
-  .message {
-    min-height: 1.5em;
-    font-size: 0.9rem;
-    &.error {
-      color: #dc2626;
+  .state {
+    font-size: 0.8rem;
+    color: #f59e0b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    &.ok {
+      color: #22c55e;
+    }
+
+    &.err {
+      color: #ef4444;
     }
   }
 
-  .state {
-    font-size: 0.85rem;
-    color: #555;
+  .progress {
+    margin-top: 0.75rem;
+    height: 1.4rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+
+    .bar {
+      height: 100%;
+      background: #2563eb;
+      transition: width 0.2s ease;
+    }
+
+    span {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  .message {
+    min-height: 1.5em;
+    font-size: 0.9rem;
+
+    &.error {
+      color: #dc2626;
+    }
   }
 }
