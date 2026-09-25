@@ -36,10 +36,11 @@ Sistema open-source de transcripción y traducción de audio en tiempo real para
                               │
    ┌──────────────────────────┼──────────────────────────┐
    ▼                          ▼                          ▼
- /stage/:id               /overlay/stage/:id        (futuros: Mercure, N replicas)
- Audience view            OBS overlay
- (SSE + Jitter Buffer     (SSE + Jitter Buffer,
-  ordenado por seqId)      fondo transparente)
+ GlobalNavComponent      GlobalNavComponent        (Nav Oculta)
+ /stage/:id              /admin/broadcast          /overlay/stage/:id
+ Audience view           Broadcaster Panel         OBS overlay
+ (SSE + Jitter Buffer    (Mic/File Ingestion)      (SSE + Jitter Buffer,
+  ordenado por seqId)                              fondo transparente)
 ```
 
 ### Decisiones clave
@@ -117,13 +118,13 @@ pnpm nx serve web
 
 ## 5. Cómo probar
 
-### 5.1 Con un archivo de audio
+### 5.1 A través de la Interfaz (Recomendado)
 
-1. Abre `http://localhost:4200/admin/broadcast` (o `/api` si usas Docker).
-2. Conecta (`Conectar`) — se crea la sesión con un `sessionId` por defecto (`stage-1`).
-3. Selecciona un archivo `.mp3` o `.wav` y pulsa **Enviar archivo**, o usa **Iniciar micrófono**.
-4. Finaliza la sesión.
-5. Abre `http://localhost:4200/stage/stage-1` (audiencia) o `http://localhost:4200/overlay/stage/stage-1` (overlay OBS) y verás los subtítulos en tiempo real.
+1. Abre `http://localhost:8080` (si usas Docker) o `http://localhost:4200` (desarrollo local).
+2. Usa la **Barra de Navegación Global** superior para ir a `Panel Admin`.
+3. En el panel, el ID del escenario por defecto es `demo`. Selecciona el idioma original y el de destino, y pulsa **Conectar**.
+4. Sube un archivo de audio (`.mp3` o `.wav`) y haz clic en **Transmitir archivo**, o utiliza **Iniciar micrófono**.
+5. Abre una nueva pestaña, navega a la **Vista Audiencia** (`/stage/demo`) o a la **Vista OBS** (`/overlay/stage/demo`) para ver la transcripción y traducción en tiempo real. Utiliza el toggle para alternar entre idiomas.
 
 ### 5.2 Con el driver real (Gemini)
 
@@ -183,7 +184,7 @@ libs/
 | `REDIS_URL` | URL de Redis | `redis://localhost:6379` |
 | `AI_PROVIDER` | `mock` \| `gemini` | `mock` |
 | `GEMINI_API_KEY` | Clave de Gemini (si `AI_PROVIDER=gemini`) | — |
-| `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.8-flash` |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-1.5-flash` |
 | `MAX_CHUNK_DURATION_MS` | Duración máxima de chunk VAD | `5000` |
 | `VAD_SILENCE_THRESHOLD_MS` | Silencio que corta el chunk | `300` |
 | `VAD_FAKE` | `true` usa un VAD determinista (tests e2e) | `false` |
