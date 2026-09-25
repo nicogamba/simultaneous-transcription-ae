@@ -9,5 +9,6 @@ allowBuilds:
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+  onnxruntime-node: true
   nx: true
   unrs-resolver: true

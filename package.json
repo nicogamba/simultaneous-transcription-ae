@@ -22,9 +22,11 @@
     "@nx/webpack": "23.2.1",
     "@schematics/angular": "~22.1.0",
     "@swc/helpers": "~0.5.18",
+    "@types/fluent-ffmpeg": "^2.1.28",
     "@types/jest": "~30.0.0",
     "@types/node": "^22.0.0",
     "jest": "~30.3.0",
+    "jest-environment-jsdom": "~30.3.0",
     "jest-environment-node": "~30.3.0",
     "jest-util": "~30.3.0",
     "jsdom": "^27.1.0",
@@ -49,7 +51,9 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@ricky0123/vad-node": "^0.0.3",
     "axios": "^1.6.0",
+    "fluent-ffmpeg": "^2.1.3",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   }
