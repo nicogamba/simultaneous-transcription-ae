@@ -25,3 +25,25 @@ export function msToSamples(ms: number, sampleRate: number): number {
 export function samplesToMs(samples: number, sampleRate: number): number {
   return (samples / sampleRate) * 1000;
 }
+
+export function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
+  const dataSize = pcm.byteLength;
+  const buffer = new Uint8Array(44 + dataSize);
+  const view = new DataView(buffer.buffer);
+
+  buffer.set([0x52, 0x49, 0x46, 0x46], 0);
+  view.setUint32(4, 36 + dataSize, true);
+  buffer.set([0x57, 0x41, 0x56, 0x45], 8);
+  buffer.set([0x66, 0x6d, 0x74, 0x20], 12);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  buffer.set([0x64, 0x61, 0x74, 0x61], 36);
+  view.setUint32(40, dataSize, true);
+  buffer.set(pcm, 44);
+  return buffer;
+}

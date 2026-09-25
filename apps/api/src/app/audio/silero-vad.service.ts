@@ -1,8 +1,10 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { VadChunk } from '@simultaneous-transcription-ae/shared-types';
 import { int16ToFloat32, msToSamples, samplesToMs } from './audio.utils';
-import { PIPELINE_CONFIG, PipelineConfig } from './pipeline.config';
-import { IVadProcessor, VAD_PROCESSOR } from './vad.processor';
+import { PIPELINE_CONFIG } from './pipeline.config';
+import type { PipelineConfig } from './pipeline.config';
+import { VAD_PROCESSOR } from './vad.processor';
+import type { IVadProcessor } from './vad.processor';
 
 interface SessionVadState {
   pending: Uint8Array;

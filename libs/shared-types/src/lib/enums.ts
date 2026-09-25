@@ -19,3 +19,12 @@ export enum ProviderType {
   MOCK = 'mock',
   GEMINI = 'gemini',
 }
+
+export type AnyLanguage = SourceLanguage | TargetLanguage;
+
+export function languagesDiffer(
+  a: AnyLanguage,
+  b: AnyLanguage,
+): boolean {
+  return a !== b;
+}

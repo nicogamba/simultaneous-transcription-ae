@@ -1,4 +1,4 @@
-import { IVadProcessor, VadSegment } from './vad.processor';
+import { IVadProcessor, VadSegment } from '../vad.processor';
 
 export class FakeVadProcessor implements IVadProcessor {
   segmentsPerRun: VadSegment[][] = [];
