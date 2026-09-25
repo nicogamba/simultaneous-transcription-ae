@@ -4,23 +4,15 @@
   "private": true,
   "nx": {
     "name": "api-e2e",
-    "implicitDependencies": [
-      "api"
-    ],
+    "implicitDependencies": ["api"],
     "targets": {
       "e2e": {
         "executor": "@nx/jest:jest",
-        "outputs": [
-          "{projectRoot}/test-output/jest/coverage"
-        ],
+        "outputs": ["{projectRoot}/test-output/jest/coverage"],
         "options": {
           "jestConfig": "apps/api-e2e/jest.config.cts",
           "passWithNoTests": true
-        },
-        "dependsOn": [
-          "api:build",
-          "api:serve"
-        ]
+        }
       }
     }
   }

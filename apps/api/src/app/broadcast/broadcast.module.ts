@@ -18,6 +18,6 @@ import { SUBTITLE_BROADCASTER } from './subtitle-broadcaster.interface';
       useClass: RedisSubtitleBroadcaster,
     },
   ],
-  exports: [SUBTITLE_BROADCASTER],
+  exports: [SUBTITLE_BROADCASTER, REDIS_URL],
 })
 export class BroadcastModule {}

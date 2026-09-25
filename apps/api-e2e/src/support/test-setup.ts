@@ -1,9 +1,12 @@
-/* eslint-disable */
-import axios from 'axios';
+import {
+  ReadableStream as NodeReadableStream,
+  TransformStream as NodeTransformStream,
+} from 'node:stream/web';
 
-module.exports = async function () {
-  // Configure axios for tests to use.
-  const host = process.env.HOST ?? 'localhost';
-  const port = process.env.PORT ?? '3000';
-  axios.defaults.baseURL = `http://${host}:${port}`;
-};
+if (!globalThis.ReadableStream) {
+  globalThis.ReadableStream = NodeReadableStream as typeof ReadableStream;
+}
+
+if (!globalThis.TransformStream) {
+  globalThis.TransformStream = NodeTransformStream as typeof TransformStream;
+}

@@ -19,6 +19,13 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
+  moduleNameMapper: {
+    '^@simultaneous-transcription-ae/api/(.*)$':
+      '<rootDir>/../../apps/api/src/$1',
+    '^@simultaneous-transcription-ae/api$': '<rootDir>/../../apps/api/src',
+    '^@simultaneous-transcription-ae/shared-types$':
+      '<rootDir>/../../libs/shared-types/src/index.ts',
+  },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
 };

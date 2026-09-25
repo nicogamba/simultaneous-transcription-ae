@@ -19,6 +19,9 @@
   "references": [
     {
       "path": "../../libs/shared-types"
+    },
+    {
+      "path": "../api-e2e"
     }
   ]
 }

@@ -17,7 +17,9 @@
     "paths": {
       "@simultaneous-transcription-ae/shared-types": [
         "./libs/shared-types/src/index.ts"
-      ]
+      ],
+      "@simultaneous-transcription-ae/api": ["./apps/api/src"],
+      "@simultaneous-transcription-ae/api/*": ["./apps/api/src/*"]
     }
   }
 }

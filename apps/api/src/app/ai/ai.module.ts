@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BroadcastModule } from '../broadcast/broadcast.module';
 import { APP_CONFIG, AppConfig } from '../config/app.config';
 import { TranscriptionEngine } from './transcription-engine.service';
 import {
@@ -7,6 +8,7 @@ import {
 } from './translation/translation-provider.factory';
 
 @Module({
+  imports: [BroadcastModule],
   providers: [
     {
       provide: TRANSLATION_PROVIDER,

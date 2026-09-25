@@ -48,3 +48,6 @@ Thumbs.db
 .angular
 
 __screenshots__/
+
+# local env
+.env
