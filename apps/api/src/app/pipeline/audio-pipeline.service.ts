@@ -75,7 +75,16 @@ export class AudioPipelineService implements OnModuleDestroy {
         this.logger.warn(`Session ${sessionId} is not active; dropping chunk`);
         return;
       }
-      const pcm = await this.acoustic.transcodeToPcm16kMono(data, mimeType);
+      let pcm: Uint8Array;
+      try {
+        pcm = await this.acoustic.transcodeToPcm16kMono(data, mimeType);
+      } catch (error) {
+        this.logger.error(
+          `[${sessionId}] failed to transcode ${mimeType} chunk; dropping`,
+          error,
+        );
+        return;
+      }
       const chunks = await this.vad.ingestPcm(sessionId, pcm);
       const dispatched = this.dispatchChunks(session, chunks);
       await Promise.allSettled(dispatched);
