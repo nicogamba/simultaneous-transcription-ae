@@ -1,4 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnDestroy,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AudioCapturerService } from '../services/audio-capturer.service';
@@ -16,7 +21,7 @@ type Phase = 'idle' | 'mic' | 'file';
   templateUrl: './admin-broadcast.component.html',
   styleUrl: './admin-broadcast.component.scss',
 })
-export class AdminBroadcastComponent {
+export class AdminBroadcastComponent implements OnDestroy {
   protected readonly capturer = inject(AudioCapturerService);
   protected readonly ws = inject(WsService);
 
@@ -26,6 +31,15 @@ export class AdminBroadcastComponent {
   protected readonly fileName = signal<string | null>(null);
   protected readonly message = signal<string>('');
   protected readonly phase = signal<Phase>('idle');
+
+  ngOnDestroy(): void {
+    this.capturer.stopMic();
+    this.capturer.stopFileStream();
+    if (this.ws.status() !== 'disconnected') {
+      void this.ws.sendEnd().catch(() => undefined);
+    }
+    this.ws.disconnect();
+  }
 
   protected connect(): void {
     this.ws.connect({

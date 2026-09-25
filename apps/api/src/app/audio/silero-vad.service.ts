@@ -108,8 +108,12 @@ export class SileroVadService implements OnModuleDestroy {
 
     let cutSample = 0;
     if (totalSamples >= maxChunkSamples) {
-      if (lastSpeechEnd > 0) {
+      if (lastSpeechEnd >= minChunkSamples) {
         cutSample = Math.min(lastSpeechEnd, maxChunkSamples);
+      } else if (lastSpeechEnd > 0) {
+        // Speech below the min chunk duration: emit the whole window so the
+        // utterance is not fragmented into micro-chunks, respecting the cap.
+        cutSample = maxChunkSamples;
       } else {
         state.pending = new Uint8Array(0);
         return [];

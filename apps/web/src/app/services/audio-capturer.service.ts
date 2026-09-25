@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { WsService } from './ws.service';
+import { createMicWorklet } from './mic-worklet';
 import {
   downmixToMono,
   float32ToInt16,
@@ -20,6 +21,7 @@ export class AudioCapturerService {
 
   private audioContext: AudioContext | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private processor: ScriptProcessorNode | null = null;
   private stream: MediaStream | null = null;
   private fileCancelled = false;
@@ -37,32 +39,41 @@ export class AudioCapturerService {
     await context.resume();
     const source = context.createMediaStreamSource(this.stream);
 
-    const processor = context.createScriptProcessor(4096, 2, 1);
-    processor.onaudioprocess = (event) => {
-      const channels: Float32Array[] = [];
-      for (let c = 0; c < event.inputBuffer.numberOfChannels; c++) {
-        channels.push(event.inputBuffer.getChannelData(c));
-      }
-      const mono = downmixToMono(channels);
+    const onPcm = (mono: Float32Array): void => {
       const pcm = float32ToInt16(mono);
       void this.sendPcm(pcm);
     };
 
-    source.connect(processor);
-    processor.connect(context.destination);
+    try {
+      this.workletNode = await createMicWorklet(context, source, onPcm);
+    } catch {
+      const processor = context.createScriptProcessor(4096, 2, 1);
+      processor.onaudioprocess = (event) => {
+        const channels: Float32Array[] = [];
+        for (let c = 0; c < event.inputBuffer.numberOfChannels; c++) {
+          channels.push(event.inputBuffer.getChannelData(c));
+        }
+        onPcm(downmixToMono(channels));
+      };
+      source.connect(processor);
+      processor.connect(context.destination);
+      this.processor = processor;
+    }
 
     this.audioContext = context;
     this.sourceNode = source;
-    this.processor = processor;
     this.recording.set(true);
   }
 
   stopMic(): void {
     this.processor?.disconnect();
+    this.workletNode?.port.close();
+    this.workletNode?.disconnect();
     this.sourceNode?.disconnect();
     void this.audioContext?.close();
     this.audioContext = null;
     this.sourceNode = null;
+    this.workletNode = null;
     this.processor = null;
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;

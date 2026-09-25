@@ -93,6 +93,26 @@ describe('SileroVadService', () => {
 
       expect(chunks).toHaveLength(0);
     });
+
+    it('does not emit micro-chunks below the min duration at the max-chunk boundary', async () => {
+      const maxChunk = 2000;
+      const shortSpeechSamples = 6400; // 400ms < minChunk (800ms)
+      const service = new SileroVadService(
+        new FakeVadProcessor([{ start: 0, end: shortSpeechSamples }]),
+        makeConfig({ maxChunkDurationMs: maxChunk }),
+      );
+
+      await service.ingestPcm('s7', speechMs(400));
+      const chunks = await service.ingestPcm(
+        's7',
+        silence(maxChunk - 400, SAMPLE_RATE),
+      );
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].data.byteLength).toBe(
+        (maxChunk * SAMPLE_RATE * 2) / 1000,
+      );
+    });
   });
 
   describe('sequence ids', () => {
